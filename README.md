@@ -39,13 +39,21 @@ test("home hydrates and links are real", async ({ page }) => {
 `.github/workflows/fe-gate.yml`
 ```yaml
 name: fe-gate
-on: { pull_request: {}, push: { branches: [main] } }
+on:
+  pull_request:
+  push:
+    branches: [main]
 jobs:
   gate:
     uses: RozoAI/fe-gate/.github/workflows/gate.yml@main
-    with: { package-manager: npm, build-command: "npm run build", unit-command: "npm run test:gate" }
-    secrets: { env-file: ${{ secrets.FE_GATE_ENV }} }
+    with:
+      package-manager: npm
+      build-command: npm run build
+      unit-command: npm run test:gate
+    secrets:
+      env-file: ${{ secrets.FE_GATE_ENV }}
 ```
+(YAML note: never put `${{ }}` inside a `{ }` flow mapping — GitHub rejects the file.)
 
 `scripts/gate-checks.ts` (wired to `npm run test:gate`) — page coverage + any registry checks:
 ```ts

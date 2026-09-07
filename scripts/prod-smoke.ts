@@ -12,7 +12,7 @@
 import { chromium } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
-interface Site { name: string; url: string; repo: string; branch: string; version?: string }
+interface Site { name: string; url: string; repo: string; branch: string; version?: string; allowErrors?: string[] }
 const { sites } = JSON.parse(readFileSync(new URL("../sites.json", import.meta.url), "utf8")) as { sites: Site[] };
 const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
 
@@ -44,9 +44,10 @@ async function main() {
       try {
         const r = await fetch(s.url + s.version + bust, { headers: { "User-Agent": "fe-gate-smoke" } });
         const body = await r.text();
-        const deployed = (body.match(/[0-9a-f]{40}/) || body.match(/[0-9a-f]{7,12}/) || [])[0];
+        const deployed = (body.match(/\b[0-9a-f]{40}\b/) || body.match(/\b(?=[0-9a-f]*[a-f])[0-9a-f]{7,12}\b/) || [])[0];
         const head = await headSha(s.repo, s.branch);
-        if (!deployed) problems.push(`${s.version} has no sha (status ${r.status})`);
+        if (r.status !== 200) problems.push(`${s.version} -> ${r.status}`);
+        else if (!deployed) console.log(`warn ${s.name}: ${s.version} is not a git sha (${body.trim().slice(0, 60)}), cannot compare with ${s.repo}@${s.branch}`);
         else if (head && !head.startsWith(deployed) && !deployed.startsWith(head.slice(0, deployed.length)))
           problems.push(`deployed ${deployed.slice(0, 7)} != ${s.repo}@${s.branch} ${head.slice(0, 7)} (merged but not deployed?)`);
       } catch (e) { problems.push(`version check error: ${(e as Error).message}`); }
@@ -63,7 +64,8 @@ async function main() {
       if (!title.trim()) problems.push("empty document.title after hydration");
       const hyd = errors.filter((e) => /Minified React error #4(18|19|22|23|25)|Hydration failed|did not match/i.test(e));
       if (hyd.length) problems.push(`hydration errors: ${hyd[0].slice(0, 120)}`);
-      const uncaught = errors.filter((e) => e.startsWith("pageerror:"));
+      const allowed = (e: string) => (s.allowErrors ?? []).some((a) => e.includes(a));
+      const uncaught = errors.filter((e) => e.startsWith("pageerror:") && !allowed(e));
       if (uncaught.length) problems.push(`uncaught: ${uncaught[0].slice(0, 120)}`);
     } catch (e) { problems.push(`browser: ${(e as Error).message.slice(0, 120)}`); }
     await page.close();

@@ -1,9 +1,12 @@
 name: prod-smoke
 on:
-  schedule: [{ cron: "17 * * * *" }]   # hourly
+  schedule:
+    - cron: "17 * * * *"   # hourly
   workflow_dispatch:
-  repository_dispatch: { types: [deployed] }   # Vercel deploy hook -> repository_dispatch
-permissions: { contents: read }
+  repository_dispatch:
+    types: [deployed]      # Vercel deploy hook -> repository_dispatch
+permissions:
+  contents: read
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -11,18 +14,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "22" }
+        with:
+          node-version: "22"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Smoke
-        id: smoke
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
-        run: npm run prod-smoke 2>&1 | tee smoke.log; exit ${PIPESTATUS[0]}
-      - name: Alert Feishu
-        if: failure() && env.FEISHU_WEBHOOK != ''
-        env: { FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }} }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -o pipefail
+          npm run -s prod-smoke 2>&1 | tee smoke.log
+      - name: Alert Feishu
+        if: failure()
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: |
+          [ -n "$FEISHU_WEBHOOK" ] || { echo "no FEISHU_WEBHOOK secret; skipping alert"; exit 0; }
           body=$(grep -A20 '^FAIL' smoke.log | head -40)
-          jq -n --arg t "fe-gate prod-smoke FAILED ($GITHUB_RUN_ID)" --arg b "$body" \
-            '{msg_type:"text",content:{text:($t+"\n"+$b+"\nhttps://github.com/'"$GITHUB_REPOSITORY"'/actions/runs/'"$GITHUB_RUN_ID"'")}}' \
+          jq -n --arg t "fe-gate prod-smoke FAILED" --arg b "$body" --arg u "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{msg_type:"text",content:{text:($t+"\n"+$b+"\n"+$u)}}' \
             | curl -sS -X POST -H 'Content-Type: application/json' -d @- "$FEISHU_WEBHOOK"
