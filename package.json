@@ -1,6 +1,6 @@
 {
   "name": "@rozoai/fe-gate",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Shared frontend gate for Rozo web apps: Playwright base config, hydration/CTA/QR assertions, mock wallet, consistency checks, reusable GitHub workflow.",
   "license": "MIT",
   "type": "module",

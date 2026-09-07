@@ -6,7 +6,7 @@ import { devices } from "@playwright/test";
 export function gateConfig(opts) {
     const isCI = !!process.env.CI;
     return {
-        testDir: opts.testDir ?? "e2e/pages",
+        testDir: opts.testDir ?? ".",
         fullyParallel: true,
         forbidOnly: isCI,
         retries: isCI ? 1 : 0,

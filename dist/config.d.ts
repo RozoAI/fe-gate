@@ -4,7 +4,7 @@ export interface GateConfigOptions {
     baseURL: string;
     /** Command that starts the app locally (omit when testing a deployed URL). */
     webServerCommand?: string;
-    /** Directory holding the specs. Default: e2e/pages */
+    /** Spec directory, relative to the config file. Default "." (config lives in e2e/pages/). */
     testDir?: string;
     /** Extra Playwright overrides merged last. */
     overrides?: Partial<PlaywrightTestConfig>;

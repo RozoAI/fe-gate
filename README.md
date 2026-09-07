@@ -18,7 +18,7 @@ mkdir -p e2e/pages
 `e2e/pages/playwright.config.ts`
 ```ts
 import { gateConfig } from "@rozoai/fe-gate";
-export default gateConfig({ baseURL: "http://localhost:3000", webServerCommand: "npm run dev" });
+export default gateConfig({ baseURL: process.env.GATE_BASE_URL ?? "http://localhost:3000", webServerCommand: process.env.GATE_BASE_URL ? undefined : "npm run dev" });
 ```
 
 `e2e/pages/index.spec.ts`
