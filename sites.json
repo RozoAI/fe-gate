@@ -1,0 +1,13 @@
+{
+  "sites": [
+    { "name": "intents", "url": "https://intents.rozo.ai", "repo": "RozoAI/rozo-intents-demo", "branch": "main", "version": "/version", "h1": null },
+    { "name": "agent", "url": "https://agent.rozo.ai", "repo": "RozoAI/rozo-chat-ai", "branch": "main", "version": "/version" },
+    { "name": "invoice", "url": "https://invoice.rozo.ai", "repo": "RozoAI/rozo-invoice", "branch": "main", "version": "/version" },
+    { "name": "checkout", "url": "https://checkout.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
+    { "name": "open", "url": "https://open.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
+    { "name": "rescue", "url": "https://rescue.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
+    { "name": "partners", "url": "https://partners.rozo.ai", "repo": "RozoAI/rozo-merchants-dashboard", "branch": "main" },
+    { "name": "rozo.ai", "url": "https://rozo.ai", "repo": "RozoAI/rozo-landing", "branch": "main" },
+    { "name": "mpprouter", "url": "https://www.mpprouter.dev", "repo": "mpprouter/mpprouter-landingpage", "branch": "main" }
+  ]
+}

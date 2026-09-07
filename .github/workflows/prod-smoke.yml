@@ -1,0 +1,28 @@
+name: prod-smoke
+on:
+  schedule: [{ cron: "17 * * * *" }]   # hourly
+  workflow_dispatch:
+  repository_dispatch: { types: [deployed] }   # Vercel deploy hook -> repository_dispatch
+permissions: { contents: read }
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Smoke
+        id: smoke
+        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        run: npm run prod-smoke 2>&1 | tee smoke.log; exit ${PIPESTATUS[0]}
+      - name: Alert Feishu
+        if: failure() && env.FEISHU_WEBHOOK != ''
+        env: { FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }} }
+        run: |
+          body=$(grep -A20 '^FAIL' smoke.log | head -40)
+          jq -n --arg t "fe-gate prod-smoke FAILED ($GITHUB_RUN_ID)" --arg b "$body" \
+            '{msg_type:"text",content:{text:($t+"\n"+$b+"\nhttps://github.com/'"$GITHUB_REPOSITORY"'/actions/runs/'"$GITHUB_RUN_ID"'")}}' \
+            | curl -sS -X POST -H 'Content-Type: application/json' -d @- "$FEISHU_WEBHOOK"
