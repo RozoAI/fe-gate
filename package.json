@@ -1,20 +1,28 @@
 {
   "name": "@rozoai/fe-gate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared frontend gate for Rozo web apps: Playwright base config, hydration/CTA/QR assertions, mock wallet, consistency checks, reusable GitHub workflow.",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "exports": { ".": "./dist/index.js", "./config": "./dist/config.js" },
-  "files": ["dist", "templates"],
+  "exports": {
+    ".": "./dist/index.js",
+    "./config": "./dist/config.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prod-smoke": "tsx scripts/prod-smoke.ts"
   },
-  "peerDependencies": { "@playwright/test": ">=1.45" },
+  "peerDependencies": {
+    "@playwright/test": ">=1.45"
+  },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "@types/node": "^22.0.0",

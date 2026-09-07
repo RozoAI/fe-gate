@@ -30,6 +30,9 @@ export function gateConfig(opts: GateConfigOptions): PlaywrightTestConfig {
       trace: "on-first-retry",
       screenshot: "only-on-failure",
       ignoreHTTPSErrors: true,
+      // Mac trap: `playwright install` hangs at 100% on some machines; point at a cached
+      // chrome-headless-shell instead. Unset in CI (ubuntu installs normally).
+      launchOptions: process.env.FE_GATE_CHROMIUM ? { executablePath: process.env.FE_GATE_CHROMIUM } : undefined,
     },
     projects: [
       { name: "desktop", use: { ...devices["Desktop Chrome"] } },
