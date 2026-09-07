@@ -1,6 +1,6 @@
 {
   "name": "@rozoai/fe-gate",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Shared frontend gate for Rozo web apps: Playwright base config, hydration/CTA/QR assertions, mock wallet, consistency checks, reusable GitHub workflow.",
   "license": "MIT",
   "type": "module",
@@ -16,7 +16,6 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prod-smoke": "tsx scripts/prod-smoke.ts"
   },
