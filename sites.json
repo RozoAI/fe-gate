@@ -7,7 +7,7 @@
     { "name": "checkout", "url": "https://checkout.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
     { "name": "open", "url": "https://open.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
     { "name": "rescue", "url": "https://rescue.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
-    { "name": "partners", "url": "https://partners.rozo.ai", "repo": "RozoAI/rozo-merchants-dashboard", "branch": "main" },
+    { "name": "partners", "url": "https://partners.rozo.ai", "repo": "RozoAI/rozo-merchants-dashboard", "branch": "main", "version": "/version" },
     { "name": "rozo.ai", "url": "https://rozo.ai", "repo": "RozoAI/rozo-landing", "branch": "main" },
     { "name": "mpprouter", "url": "https://www.mpprouter.dev", "repo": "mpprouter/mpprouter-landingpage", "branch": "main" }
   ]
