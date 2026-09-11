@@ -16,13 +16,21 @@ interface Site { name: string; url: string; repo: string; branch: string; versio
 const { sites } = JSON.parse(readFileSync(new URL("../sites.json", import.meta.url), "utf8")) as { sites: Site[] };
 const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
 
-async function headSha(repo: string, branch: string): Promise<string | null> {
+/** Minutes a just-merged commit is allowed to still be deploying before we call it a miss. */
+const DEPLOY_GRACE_MINUTES = 15;
+
+async function headCommit(repo: string, branch: string): Promise<{ sha: string; ageMinutes: number } | null> {
   const tok = process.env.GITHUB_TOKEN;
   if (!tok) return null;
   const r = await fetch(`https://api.github.com/repos/${repo}/commits/${branch}`, {
-    headers: { Authorization: `Bearer ${tok}`, Accept: "application/vnd.github.sha", "User-Agent": "fe-gate" },
+    headers: { Authorization: `Bearer ${tok}`, Accept: "application/vnd.github+json", "User-Agent": "fe-gate" },
   });
-  return r.ok ? (await r.text()).trim() : null;
+  if (!r.ok) return null;
+  const j = (await r.json()) as { sha?: string; commit?: { committer?: { date?: string } } };
+  if (!j.sha) return null;
+  const iso = j.commit?.committer?.date;
+  const ageMinutes = iso ? (Date.now() - Date.parse(iso)) / 60_000 : Number.POSITIVE_INFINITY;
+  return { sha: j.sha, ageMinutes };
 }
 
 async function main() {
@@ -45,11 +53,17 @@ async function main() {
         const r = await fetch(s.url + s.version + bust, { headers: { "User-Agent": "fe-gate-smoke" } });
         const body = await r.text();
         const deployed = (body.match(/\b[0-9a-f]{40}\b/) || body.match(/\b(?=[0-9a-f]*[a-f])[0-9a-f]{7,12}\b/) || [])[0];
-        const head = await headSha(s.repo, s.branch);
+        const head = await headCommit(s.repo, s.branch);
         if (r.status !== 200) problems.push(`${s.version} -> ${r.status}`);
         else if (!deployed) console.log(`warn ${s.name}: ${s.version} is not a git sha (${body.trim().slice(0, 60)}), cannot compare with ${s.repo}@${s.branch}`);
-        else if (head && !head.startsWith(deployed) && !deployed.startsWith(head.slice(0, deployed.length)))
-          problems.push(`deployed ${deployed.slice(0, 7)} != ${s.repo}@${s.branch} ${head.slice(0, 7)} (merged but not deployed?)`);
+        else if (head && !head.sha.startsWith(deployed) && !deployed.startsWith(head.sha.slice(0, deployed.length))) {
+          // A merge that landed minutes ago is still deploying; only an old
+          // commit that never shipped is a real "merged but not deployed".
+          const msg = `deployed ${deployed.slice(0, 7)} != ${s.repo}@${s.branch} ${head.sha.slice(0, 7)}`;
+          if (head.ageMinutes <= DEPLOY_GRACE_MINUTES)
+            console.log(`warn ${s.name}: ${msg} — tip is ${head.ageMinutes.toFixed(0)}m old, still inside the ${DEPLOY_GRACE_MINUTES}m deploy grace window`);
+          else problems.push(`${msg} (merged but not deployed?)`);
+        }
       } catch (e) { problems.push(`version check error: ${(e as Error).message}`); }
     }
 
