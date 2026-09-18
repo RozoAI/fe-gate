@@ -25,7 +25,10 @@ jobs:
       - name: Require notification configuration before money movement
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-        run: node -e 'if (!process.env.FEISHU_WEBHOOK) { console.error("FEISHU_WEBHOOK missing; refusing payment"); process.exit(1); }'
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_ALERT_CHAT_ID: ${{ secrets.FEISHU_ALERT_CHAT_ID }}
+        run: node -e 'if (!(process.env.FEISHU_WEBHOOK || (process.env.FEISHU_APP_ID && process.env.FEISHU_APP_SECRET && process.env.FEISHU_ALERT_CHAT_ID))) { console.error("Feishu notification configuration missing; refusing payment"); process.exit(1); }'
       - name: Base and Stellar round trip
         id: payment
         env:
@@ -48,5 +51,8 @@ jobs:
           FE_GATE_FUNDING_REQUIRED: ${{ steps.payment.outputs.funding_required }}
           FE_GATE_LOW_BALANCE: ${{ steps.payment.outputs.low_balance }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_ALERT_CHAT_ID: ${{ secrets.FEISHU_ALERT_CHAT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/notify-feishu.mjs
