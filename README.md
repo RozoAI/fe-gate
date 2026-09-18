@@ -1,16 +1,18 @@
 # @rozoai/fe-gate
 
-One shared frontend gate for every Rozo web app. Three layers:
+One shared frontend gate for every Rozo web app, with optional cloud payment monitors:
 
 | Layer | Where it runs | What it catches |
 |---|---|---|
 | **L0 PR gate** | each app repo's `fe-gate.yml` → calls `RozoAI/fe-gate/.github/workflows/gate.yml` | hydration errors, empty hrefs, blank QR, wallet-connect UI state, page coverage, i18n parity, vercel.json rewrite coverage, visual baselines |
 | **L1 prod smoke** | this repo, hourly (`prod-smoke.yml`) + after each deploy | merged-but-not-deployed (`/version` sha vs branch tip), hydration on production, dead pages |
-| **L2 payment contract** | `rozo-intents-api`, hourly (`core-payment-canary.yml`) | production schema drift in Lightning order creation, exercised inside a rolled-back transaction |
+| **L2 payment contract** | `rozo-intents-api` pg_cron plus `contract-watch.yml`, gated pending activation | production schema drift in Lightning order creation, exercised inside a rolled-back transaction; stale/missing heartbeat fails |
+| **L3 real money** | `real-money.yml`, gated pending activation | daily Base/Stellar round trip, transaction evidence and destination balance reconciliation |
 
-The real-money tier is intentionally owned by the Mac mini smoketest runner,
-where the dedicated test wallets live. This repository does not contain a
-`real-money.yml` workflow. Do not report that tier as healthy from this repo.
+The cloud real-money tier is implemented in `real-money.yml`, disabled until
+`FE_GATE_REAL_MONEY_ENABLED=true`. The hourly quote and SQL-heartbeat probes
+have independent activation gates. See [the Chinese activation and recovery
+runbook](docs/synthetic-monitoring.zh.md). A skipped job is not health evidence.
 
 ## Adopt in an app repo (10 minutes)
 

@@ -1,6 +1,7 @@
 {
   "_note": "allowErrors = known, tracked errors that must not block the smoke. Each entry needs an owner; remove it when fixed. Intercom: called before its snippet loads on intents/agent/invoice (found 2026-09-07, owner Yudha).",
   "sites": [
+    { "name": "upi", "url": "https://upi.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
     { "name": "intents", "url": "https://intents.rozo.ai", "repo": "RozoAI/rozo-intents-demo", "branch": "main", "version": "/version", "allowErrors": ["window.Intercom is not a function"] },
     { "name": "agent", "url": "https://agent.rozo.ai", "repo": "RozoAI/rozo-chat-ai", "branch": "main", "version": "/version", "allowErrors": ["window.Intercom is not a function"] },
     { "name": "invoice", "url": "https://invoice.rozo.ai", "repo": "RozoAI/rozo-invoice", "branch": "main", "version": "/version", "allowErrors": ["window.Intercom is not a function"] },

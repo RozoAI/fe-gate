@@ -1,0 +1,31 @@
+name: contract-watch
+on:
+  schedule:
+    - cron: "27 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: fe-gate-contract-watch
+  cancel-in-progress: false
+jobs:
+  watch:
+    if: ${{ vars.FE_GATE_CONTRACT_WATCH_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check database-owned canary heartbeat
+        env:
+          FE_GATE_SUPABASE_ANON_KEY: ${{ secrets.FE_GATE_SUPABASE_ANON_KEY }}
+        run: node scripts/contract-watch.mjs
+      - name: Alert Feishu
+        if: failure()
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/notify-feishu.mjs
