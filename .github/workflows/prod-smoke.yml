@@ -39,7 +39,7 @@ jobs:
           FE_GATE_PROBE_APP_ID: ${{ inputs.probe_app_id || 'merchant_openrouter' }}
         run: node scripts/payment-probes.mjs
       - name: Alert Feishu
-        if: ${{ failure() && vars.FE_GATE_SYNTHETIC_ENABLED == 'true' }}
+        if: failure()
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           GITHUB_TOKEN: ${{ github.token }}

@@ -113,6 +113,11 @@ async function main() {
   const record = (entry) => { records.push(entry); writeFileSync('real-money-evidence.json', JSON.stringify(records, null, 2)); console.log(JSON.stringify(entry)); };
   const adapter = await makeAdapter();
   try {
+    // Registration uses the existing server config, not a bypass of its gate.
+    // Prove it before creating an order or moving funds.
+    const registration = await request(`${API}/payments?dryrun=true`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appId: 'fe_gate_canary', type: 'exactIn', source: { chainId: '8453', tokenSymbol: 'USDC', amount: '0.5' }, destination: { chainId: '1500', tokenSymbol: 'USDC', receiverAddress: adapter.addresses.stellar } }) });
+    if (registration.status !== 'dryrun' || registration.id !== null || registration.appId !== 'fe_gate_canary') throw new Error('canary app registration/quote preflight failed');
+    record({ phase: 'registration_verified' });
     const after = await runRoundTrip(adapter, record, new Date().toISOString().slice(0, 10));
     if (after.baseUsdc < 1 || after.stellarUsdc < 1 || after.baseEth < 0.0002) {
       if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'low_balance=true\n');

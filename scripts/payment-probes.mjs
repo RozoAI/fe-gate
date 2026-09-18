@@ -18,7 +18,7 @@ export async function probePayments(fetcher = fetch, appId = 'merchant_openroute
     try {
       const response = await fetcher(`${API}/payments?dryrun=true`, {
         method: 'POST', redirect: 'error', signal: AbortSignal.timeout(30_000),
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Origin: 'https://checkout.rozo.ai' },
         body: JSON.stringify({ appId, type: 'exactOut', source: { chainId: rail === 'lightning' ? 'lightning' : '8453', tokenSymbol: rail === 'lightning' ? 'BTC' : 'USDC' }, destination: { chainId: '8453', tokenSymbol: 'USDC', amount: '1' } }),
       });
       if (response.status !== 200) throw new Error(`HTTP ${response.status}`);

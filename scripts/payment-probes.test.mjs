@@ -11,6 +11,7 @@ test('real preview contracts require no payable invoice or deposit', () => {
 test('both rails use URL dryrun and never send a real create', async () => {
   const calls = [];
   const results = await probePayments(async (url, options) => {
+    assert.equal(options.headers.Origin, 'https://checkout.rozo.ai');
     calls.push([url, JSON.parse(options.body)]);
     return { status: 200, json: async () => calls.length === 1 ? lightning : base };
   });
