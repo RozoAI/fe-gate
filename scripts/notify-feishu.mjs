@@ -1,14 +1,31 @@
 import { pathToFileURL } from 'node:url';
 
 export async function notify(fetcher = fetch, env = process.env) {
-  if (!env.FEISHU_WEBHOOK) throw new Error('FEISHU_WEBHOOK is not configured');
-  const url = new URL(env.FEISHU_WEBHOOK);
-  if (url.protocol !== 'https:' || !['open.feishu.cn', 'open.larksuite.com'].includes(url.hostname)) throw new Error('invalid webhook host');
   const reason = env.FE_GATE_FUNDING_REQUIRED === 'true' ? '需老板打钱：余额低于安全门槛，未下单。' : env.FE_GATE_LOW_BALANCE === 'true' ? '一周内要补钱，请查看两链余额。' : '监控失败，请核查运行证据。';
-  const response = await fetcher(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg_type: 'text', content: { text: `fe-gate ${env.GITHUB_WORKFLOW || 'monitor'}：${reason}\nhttps://github.com/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` } }) });
+  const text = `fe-gate ${env.GITHUB_WORKFLOW || 'monitor'}：${reason}\nhttps://github.com/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`;
+  if (env.FEISHU_WEBHOOK) {
+    const url = new URL(env.FEISHU_WEBHOOK);
+    if (url.protocol !== 'https:' || !['open.feishu.cn', 'open.larksuite.com'].includes(url.hostname)) throw new Error('invalid webhook host');
+    const response = await fetcher(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg_type: 'text', content: { text } }) });
+    if (!response.ok) throw new Error('Feishu HTTP delivery failed');
+    const body = await response.json();
+    if ((body.code ?? body.StatusCode) !== 0) throw new Error('Feishu rejected delivery');
+    return;
+  }
+  if (!env.FEISHU_APP_ID || !env.FEISHU_APP_SECRET || !env.FEISHU_ALERT_CHAT_ID) throw new Error('Feishu App Bot is not configured');
+  const tokenResponse = await fetcher('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app_id: env.FEISHU_APP_ID, app_secret: env.FEISHU_APP_SECRET }) });
+  if (!tokenResponse.ok) throw new Error('Feishu token request failed');
+  const tokenBody = await tokenResponse.json();
+  if (tokenBody.code !== 0 || !tokenBody.tenant_access_token) throw new Error('Feishu token rejected');
+  const url = new URL('https://open.feishu.cn/open-apis/im/v1/messages');
+  url.searchParams.set('receive_id_type', 'chat_id');
+  const response = await fetcher(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000), headers: { Authorization: `Bearer ${tokenBody.tenant_access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ receive_id: env.FEISHU_ALERT_CHAT_ID, msg_type: 'text', content: JSON.stringify({ text }) }) });
   if (!response.ok) throw new Error('Feishu HTTP delivery failed');
   const body = await response.json();
-  if ((body.code ?? body.StatusCode) !== 0) throw new Error('Feishu rejected delivery');
+  if (body.code !== 0) throw new Error('Feishu rejected delivery');
+}
+function configured(env) {
+  return Boolean(env.FEISHU_WEBHOOK || (env.FEISHU_APP_ID && env.FEISHU_APP_SECRET && env.FEISHU_ALERT_CHAT_ID));
 }
 export function quietHours(now = new Date()) {
   const hour = (now.getUTCHours() + 8) % 24;
@@ -17,7 +34,7 @@ export function quietHours(now = new Date()) {
 export async function notifyOnce(fetcher = fetch, env = process.env, now = new Date()) {
   // Issue body is the durable notification marker, separate from run logs.
   // Reserve before delivery: an unknown HTTP result never causes blind resend.
-  if (!env.GITHUB_TOKEN || !env.FEISHU_WEBHOOK) throw new Error('notification configuration missing');
+  if (!env.GITHUB_TOKEN || !configured(env)) throw new Error('notification configuration missing');
   const title = `fe-gate monitor: ${env.GITHUB_WORKFLOW}`;
   const api = `https://api.github.com/repos/${env.GITHUB_REPOSITORY}`;
   async function gh(path, method = 'GET', body) {
