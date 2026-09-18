@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fundingGuard, runRoundTrip, previousRunGuard, validateIntent } from './real-money.mjs';
+import { fundingGuard, runRoundTrip, previousRunGuard, validateIntent, registrationPreflight } from './real-money.mjs';
 const balances = { baseUsdc: 2, stellarUsdc: 2, baseEth: 0.0003, stellarXlm: 3 };
 function adapter() {
   const state = { ...balances };
@@ -44,4 +44,12 @@ test('wrong recipient or overlarge quote cannot be paid', async () => {
   const intent = await adapter().create({ appId: 'fe_gate_canary', source: { chainId: '8453', tokenSymbol: 'USDC', amount: '0.5' }, destination: { chainId: '1500', tokenSymbol: 'USDC', receiverAddress: 'stellar-test' } });
   assert.throws(() => validateIntent(intent, '8453', 'someone-else'));
   assert.throws(() => validateIntent({ ...intent, source: { ...intent.source, amount: '50' } }, '8453', 'stellar-test'));
+});
+test('unregistered app cannot pass the read-only preflight', async () => {
+  await assert.rejects(registrationPreflight('fixture', async () => ({ error: { code: 'unknown_app_id' } })));
+  await registrationPreflight('fixture', async (url, options) => {
+    assert(url.endsWith('?dryrun=true'));
+    assert.equal(JSON.parse(options.body).appId, 'fe_gate_canary');
+    return { status: 'dryrun', id: null, appId: 'fe_gate_canary' };
+  });
 });

@@ -54,6 +54,10 @@ async function request(url, options = {}) {
   if (!response.ok) throw new Error(`request failed HTTP ${response.status}`);
   return response.json();
 }
+export async function registrationPreflight(receiver, requester = request) {
+  const registration = await requester(`${API}/payments?dryrun=true`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appId: 'fe_gate_canary', type: 'exactIn', source: { chainId: '8453', tokenSymbol: 'USDC', amount: '0.5' }, destination: { chainId: '1500', tokenSymbol: 'USDC', receiverAddress: receiver } }) });
+  if (registration.status !== 'dryrun' || registration.id !== null || registration.appId !== 'fe_gate_canary') throw new Error('canary app registration/quote preflight failed');
+}
 export async function previousRunGuard(fetcher = request, env = process.env) {
   if (env.GITHUB_RUN_ATTEMPT !== '1' || env.GITHUB_REF !== 'refs/heads/main') throw new Error('only first attempts on main can move funds');
   const response = await fetcher(`https://api.github.com/repos/${env.GITHUB_REPOSITORY}/actions/workflows/real-money.yml/runs?per_page=100`, { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' } });
@@ -115,8 +119,7 @@ async function main() {
   try {
     // Registration uses the existing server config, not a bypass of its gate.
     // Prove it before creating an order or moving funds.
-    const registration = await request(`${API}/payments?dryrun=true`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appId: 'fe_gate_canary', type: 'exactIn', source: { chainId: '8453', tokenSymbol: 'USDC', amount: '0.5' }, destination: { chainId: '1500', tokenSymbol: 'USDC', receiverAddress: adapter.addresses.stellar } }) });
-    if (registration.status !== 'dryrun' || registration.id !== null || registration.appId !== 'fe_gate_canary') throw new Error('canary app registration/quote preflight failed');
+    await registrationPreflight(adapter.addresses.stellar);
     record({ phase: 'registration_verified' });
     const after = await runRoundTrip(adapter, record, new Date().toISOString().slice(0, 10));
     if (after.baseUsdc < 1 || after.stellarUsdc < 1 || after.baseEth < 0.0002) {
