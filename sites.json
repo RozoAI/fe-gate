@@ -5,6 +5,7 @@
     { "name": "agent", "url": "https://agent.rozo.ai", "repo": "RozoAI/rozo-chat-ai", "branch": "main", "version": "/version", "allowErrors": ["window.Intercom is not a function"] },
     { "name": "invoice", "url": "https://invoice.rozo.ai", "repo": "RozoAI/rozo-invoice", "branch": "main", "version": "/version", "allowErrors": ["window.Intercom is not a function"] },
     { "name": "checkout", "url": "https://checkout.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
+    { "name": "checkout-btc", "url": "https://checkout.rozo.ai/btc", "repo": "RozoAI/rozo-rescue-landing", "branch": "main", "requiredText": ["Bitcoin", "Lightning"] },
     { "name": "open", "url": "https://open.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
     { "name": "rescue", "url": "https://rescue.rozo.ai", "repo": "RozoAI/rozo-rescue-landing", "branch": "main" },
     { "name": "partners", "url": "https://partners.rozo.ai", "repo": "RozoAI/rozo-merchants-dashboard", "branch": "main", "version": "/version" },

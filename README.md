@@ -6,7 +6,11 @@ One shared frontend gate for every Rozo web app. Three layers:
 |---|---|---|
 | **L0 PR gate** | each app repo's `fe-gate.yml` → calls `RozoAI/fe-gate/.github/workflows/gate.yml` | hydration errors, empty hrefs, blank QR, wallet-connect UI state, page coverage, i18n parity, vercel.json rewrite coverage, visual baselines |
 | **L1 prod smoke** | this repo, hourly (`prod-smoke.yml`) + after each deploy | merged-but-not-deployed (`/version` sha vs branch tip), hydration on production, dead pages |
-| **L2 real money** | this repo, daily (`real-money.yml`, added in week 1 day 5) | false "Payment Complete", broken pay flow end-to-end with a capped test wallet |
+| **L2 payment contract** | `rozo-intents-api`, hourly (`core-payment-canary.yml`) | production schema drift in Lightning order creation, exercised inside a rolled-back transaction |
+
+The real-money tier is intentionally owned by the Mac mini smoketest runner,
+where the dedicated test wallets live. This repository does not contain a
+`real-money.yml` workflow. Do not report that tier as healthy from this repo.
 
 ## Adopt in an app repo (10 minutes)
 

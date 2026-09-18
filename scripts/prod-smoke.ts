@@ -12,7 +12,15 @@
 import { chromium } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
-interface Site { name: string; url: string; repo: string; branch: string; version?: string; allowErrors?: string[] }
+interface Site {
+  name: string;
+  url: string;
+  repo: string;
+  branch: string;
+  version?: string;
+  allowErrors?: string[];
+  requiredText?: string[];
+}
 const { sites } = JSON.parse(readFileSync(new URL("../sites.json", import.meta.url), "utf8")) as { sites: Site[] };
 const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
 
@@ -76,6 +84,11 @@ async function main() {
       await page.waitForTimeout(500);
       const title = await page.title();
       if (!title.trim()) problems.push("empty document.title after hydration");
+      const body = await page.locator("body").innerText();
+      for (const text of s.requiredText ?? []) {
+        if (!body.toLowerCase().includes(text.toLowerCase()))
+          problems.push(`missing required text: ${text}`);
+      }
       const hyd = errors.filter((e) => /Minified React error #4(18|19|22|23|25)|Hydration failed|did not match/i.test(e));
       if (hyd.length) problems.push(`hydration errors: ${hyd[0].slice(0, 120)}`);
       const allowed = (e: string) => (s.allowErrors ?? []).some((a) => e.includes(a));
