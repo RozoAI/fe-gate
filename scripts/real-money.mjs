@@ -13,7 +13,7 @@ export const digest = (value) => createHash('sha256').update(value.toLowerCase()
 const BLOCKED = new Set(['576ace2d6a2ebd18c08d4467a6a61901fa02ae4e3a744a306ac5a5dddc255e5a', '0dbf33b720faa8b85b57ce57a2e072e235b61cf8cbcf0288b16c8c99ddbe6c87', '50d1d1947c2f813e35690c301241fc6c7b336b97bedf450e42362aa5677a64ff', '552aa57ea441816c9976f371ce933fd5e5579886af88afd74290b0f685d7eead', '3ed6d16ebc4d36cc47329e1b56a470b4999317a7038521cf85429f203842f706', '4eea2d0ee7abe6d9ca3d175690bdccddc78d0ebfe76cbfe85b1888c8a76b1141', 'f4a857fe90f4362d277a53ca582875c206bbcc98459624c3ba5f3fe63f36141a', '30d06a08f3e2f2a032a36e33e5847c6be4319d3d7916ee031828550c7ffe3914', '4d67cc7877a498d0f37db181aec2ea12a00b07c3d02e533239465ce1a8d25811', '2a17c3b61899b6e3dcee446b7bf542f112aaa7d60e1a3a9976a605c4c335f494', 'f067bdec0ac97ab3b1719db1f970d23d912600b9df9f3364ea3f3e32a2d298f0', '7eaeb9affcbe5887e58e2d7b3c05aa9f4534b02bb23d35f694aea9c526722432', '8fe8f3d0caf4310c9c9ba357f93810cefb5f2105bb990ea4653f27a37139fb54']);
 export function fundingGuard(b) {
   for (const key of ['baseUsdc', 'stellarUsdc', 'baseEth', 'stellarXlm']) if (!Number.isFinite(b[key])) throw new Error('balance observation incomplete');
-  if (b.baseUsdc < 0.6 || b.stellarUsdc < 0.6 || b.baseEth < 0.0001 || b.stellarXlm < 1.1) throw new Error('需老板打钱：余额低于安全门槛');
+  if (b.baseUsdc < 0.6 || b.stellarUsdc < 0.6 || b.baseEth < 0.0001 || b.stellarXlm < 1.1) throw Object.assign(new Error('需老板打钱：余额低于安全门槛'), { code: 'FUNDING_REQUIRED' });
 }
 export function validateIntent(intent, source, receiver) {
   if (!intent?.id || intent.appId !== 'fe_gate_canary' || intent.status !== 'payment_unpaid' || String(intent.source?.chainId) !== source || intent.source?.tokenSymbol !== 'USDC' || Number(intent.source?.amount) !== 0.5 || intent.destination?.receiverAddress?.toLowerCase() !== receiver.toLowerCase() || intent.destination?.tokenSymbol !== 'USDC' || String(intent.destination?.chainId) !== (source === '8453' ? '1500' : '8453')) throw new Error('payment identity or amount mismatch');
@@ -22,7 +22,7 @@ export function validateIntent(intent, source, receiver) {
   if (BLOCKED.has(digest(intent.source.receiverAddress))) throw new Error('compromised deposit address');
 }
 export async function runRoundTrip(adapter, record, day) {
-  const before = await adapter.balances(); fundingGuard(before); record({ phase: 'before', balances: before });
+  const before = await adapter.balances(); record({ phase: 'before', balances: before }); fundingGuard(before);
   for (const [leg, source, target] of [[1, '8453', 'stellar'], [2, '1500', 'base']]) {
     const orderId = `fe-gate-${day}-${leg}`;
     const destinationBefore = await adapter.balances();
@@ -123,4 +123,10 @@ async function main() {
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n支付往返证据\n\n\`\`\`json\n${JSON.stringify(records, null, 2)}\n\`\`\`\n`);
   }
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(() => { console.error('FAIL synthetic payment; do not retry before reconciling payment ids and chain balances'); process.exitCode = 1; });
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch((error) => {
+  if (error.code === 'FUNDING_REQUIRED') {
+    console.error('FAIL 需老板打钱：余额低于安全门槛，未下单');
+    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'funding_required=true\n');
+  } else console.error('FAIL synthetic payment; do not retry before reconciling payment ids and chain balances');
+  process.exitCode = 1;
+});

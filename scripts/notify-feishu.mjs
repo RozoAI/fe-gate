@@ -4,7 +4,8 @@ export async function notify(fetcher = fetch, env = process.env) {
   if (!env.FEISHU_WEBHOOK) throw new Error('FEISHU_WEBHOOK is not configured');
   const url = new URL(env.FEISHU_WEBHOOK);
   if (url.protocol !== 'https:' || !['open.feishu.cn', 'open.larksuite.com'].includes(url.hostname)) throw new Error('invalid webhook host');
-  const response = await fetcher(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg_type: 'text', content: { text: `fe-gate ${env.GITHUB_WORKFLOW || 'monitor'} 失败或余额预警，请核查运行证据。\nhttps://github.com/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` } }) });
+  const reason = env.FE_GATE_FUNDING_REQUIRED === 'true' ? '需老板打钱：余额低于安全门槛，未下单。' : env.FE_GATE_LOW_BALANCE === 'true' ? '一周内要补钱，请查看两链余额。' : '监控失败，请核查运行证据。';
+  const response = await fetcher(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg_type: 'text', content: { text: `fe-gate ${env.GITHUB_WORKFLOW || 'monitor'}：${reason}\nhttps://github.com/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` } }) });
   if (!response.ok) throw new Error('Feishu HTTP delivery failed');
   const body = await response.json();
   if ((body.code ?? body.StatusCode) !== 0) throw new Error('Feishu rejected delivery');

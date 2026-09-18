@@ -41,6 +41,8 @@ jobs:
       - name: Alert Feishu
         if: ${{ failure() || steps.payment.outputs.low_balance == 'true' }}
         env:
+          FE_GATE_FUNDING_REQUIRED: ${{ steps.payment.outputs.funding_required }}
+          FE_GATE_LOW_BALANCE: ${{ steps.payment.outputs.low_balance }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/notify-feishu.mjs

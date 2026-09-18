@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: "17 * * * *"   # hourly
   workflow_dispatch:
+    inputs:
+      probe_app_id:
+        description: Quote-only fault drill app id (requires operator approval)
+        type: string
+        default: merchant_openrouter
   repository_dispatch:
     types: [deployed]      # Vercel deploy hook -> repository_dispatch
 permissions:
@@ -30,6 +35,8 @@ jobs:
           npm run -s prod-smoke 2>&1 | tee smoke.log
       - name: Checkout quote previews
         if: ${{ !cancelled() && vars.FE_GATE_SYNTHETIC_ENABLED == 'true' }}
+        env:
+          FE_GATE_PROBE_APP_ID: ${{ inputs.probe_app_id || 'merchant_openrouter' }}
         run: node scripts/payment-probes.mjs
       - name: Alert Feishu
         if: ${{ failure() && vars.FE_GATE_SYNTHETIC_ENABLED == 'true' }}
