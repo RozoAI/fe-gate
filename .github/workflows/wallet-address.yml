@@ -1,0 +1,20 @@
+name: wallet-address
+on:
+  workflow_dispatch:
+jobs:
+  print:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm i --silent ethers@6 @stellar/stellar-sdk@13
+      - name: Derive public addresses (secrets are never echoed)
+        env:
+          EVM_PK: ${{ secrets.FE_GATE_EVM_PRIVATE_KEY }}
+          XLM_SK: ${{ secrets.FE_GATE_STELLAR_SECRET }}
+        run: |
+          node -e '
+            const {Wallet}=require("ethers");
+            const {Keypair}=require("@stellar/stellar-sdk");
+            const pk=process.env.EVM_PK.trim(); const w=new Wallet(pk.startsWith("0x")?pk:"0x"+pk);
+            console.log("EVM_ADDRESS="+w.address);
+            try{console.log("STELLAR_ADDRESS="+Keypair.fromSecret(process.env.XLM_SK.trim()).publicKey());}catch(e){console.log("STELLAR_ADDRESS=invalid:"+e.message)}
+          '
