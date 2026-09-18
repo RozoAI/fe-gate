@@ -1,0 +1,46 @@
+name: real-money
+on:
+  schedule:
+    - cron: "37 1 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  issues: write
+concurrency:
+  group: fe-gate-real-money
+  cancel-in-progress: false
+jobs:
+  round-trip:
+    if: ${{ vars.FE_GATE_REAL_MONEY_ENABLED == 'true' }}
+    environment: payment-synthetic-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --ignore-scripts
+      - name: Base and Stellar round trip
+        id: payment
+        env:
+          FE_GATE_REAL_MONEY_ENABLED: ${{ vars.FE_GATE_REAL_MONEY_ENABLED }}
+          FE_GATE_RECONCILED_RUN_ID: ${{ vars.FE_GATE_RECONCILED_RUN_ID }}
+          FE_GATE_EVM_PRIVATE_KEY: ${{ secrets.FE_GATE_EVM_PRIVATE_KEY }}
+          FE_GATE_STELLAR_SECRET: ${{ secrets.FE_GATE_STELLAR_SECRET }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/real-money.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-money-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: real-money-evidence.json
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Alert Feishu
+        if: ${{ failure() || steps.payment.outputs.low_balance == 'true' }}
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/notify-feishu.mjs

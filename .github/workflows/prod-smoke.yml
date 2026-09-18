@@ -7,6 +7,10 @@ on:
     types: [deployed]      # Vercel deploy hook -> repository_dispatch
 permissions:
   contents: read
+  issues: write
+concurrency:
+  group: fe-gate-prod-smoke
+  cancel-in-progress: false
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -24,13 +28,12 @@ jobs:
         run: |
           set -o pipefail
           npm run -s prod-smoke 2>&1 | tee smoke.log
+      - name: Checkout quote previews
+        if: ${{ !cancelled() && vars.FE_GATE_SYNTHETIC_ENABLED == 'true' }}
+        run: node scripts/payment-probes.mjs
       - name: Alert Feishu
-        if: failure()
+        if: ${{ failure() && vars.FE_GATE_SYNTHETIC_ENABLED == 'true' }}
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-        run: |
-          [ -n "$FEISHU_WEBHOOK" ] || { echo "no FEISHU_WEBHOOK secret; skipping alert"; exit 0; }
-          body=$(grep -A20 '^FAIL' smoke.log | head -40)
-          jq -n --arg t "fe-gate prod-smoke FAILED" --arg b "$body" --arg u "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            '{msg_type:"text",content:{text:($t+"\n"+$b+"\n"+$u)}}' \
-            | curl -sS -X POST -H 'Content-Type: application/json' -d @- "$FEISHU_WEBHOOK"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/notify-feishu.mjs
