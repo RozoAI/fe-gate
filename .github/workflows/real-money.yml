@@ -22,6 +22,10 @@ jobs:
         with:
           node-version: "22"
       - run: npm ci --ignore-scripts
+      - name: Require notification configuration before money movement
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: node -e 'if (!process.env.FEISHU_WEBHOOK) { console.error("FEISHU_WEBHOOK missing; refusing payment"); process.exit(1); }'
       - name: Base and Stellar round trip
         id: payment
         env:
