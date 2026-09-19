@@ -39,7 +39,8 @@ jobs:
           FE_GATE_PROBE_APP_ID: ${{ inputs.probe_app_id || 'merchant_openrouter' }}
         run: node scripts/payment-probes.mjs
       - name: Alert Feishu
-        if: failure()
+        # Fault drills (probe_app_id=fe_gate_fault_drill) are expected to fail; do not page.
+        if: failure() && inputs.probe_app_id != 'fe_gate_fault_drill'
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}

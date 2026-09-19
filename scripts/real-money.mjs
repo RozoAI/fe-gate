@@ -21,10 +21,12 @@ export function validateIntent(intent, source, receiver) {
   if (!intent.source.receiverAddress || !(Date.parse(intent.expiresAt) > Date.now() + 60_000)) throw new Error('deposit missing or expiring');
   if (BLOCKED.has(digest(intent.source.receiverAddress))) throw new Error('compromised deposit address');
 }
-export async function runRoundTrip(adapter, record, day) {
+export async function runRoundTrip(adapter, record, day, runId = 'local') {
   const before = await adapter.balances(); record({ phase: 'before', balances: before }); fundingGuard(before);
   for (const [leg, source, target] of [[1, '8453', 'stellar'], [2, '1500', 'base']]) {
-    const orderId = `fe-gate-${day}-${leg}`;
+    // intents_payments has UNIQUE(app_id, order_id): a second run on the same
+    // day (manual dispatch + schedule, 2026-09-19) must not reuse the order id.
+    const orderId = `fe-gate-${day}-${runId}-${leg}`;
     const destinationBefore = await adapter.balances();
     // No automatic retries around create or broadcast. A failed run blocks
     // future runs until an operator reconciles the saved payment/chain evidence.
@@ -121,7 +123,7 @@ async function main() {
     // Prove it before creating an order or moving funds.
     await registrationPreflight(adapter.addresses.stellar);
     record({ phase: 'registration_verified' });
-    const after = await runRoundTrip(adapter, record, new Date().toISOString().slice(0, 10));
+    const after = await runRoundTrip(adapter, record, new Date().toISOString().slice(0, 10), process.env.GITHUB_RUN_ID || 'local');
     if (after.baseUsdc < 1 || after.stellarUsdc < 1 || after.baseEth < 0.0002) {
       if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'low_balance=true\n');
       console.log('一周内要补钱');
@@ -135,6 +137,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (error.code === 'FUNDING_REQUIRED') {
     console.error('FAIL 需老板打钱：余额低于安全门槛，未下单');
     if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'funding_required=true\n');
-  } else console.error('FAIL synthetic payment; do not retry before reconciling payment ids and chain balances');
+  } else console.error(`FAIL synthetic payment (${error?.message ?? error}); do not retry before reconciling payment ids and chain balances`);
   process.exitCode = 1;
 });

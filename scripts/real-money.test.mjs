@@ -22,6 +22,14 @@ test('two legs reconcile both destination increases and loop balances', async ()
   assert.equal(records.filter((r) => r.phase === 'paid').length, 2);
   assert(Math.abs(after.baseUsdc - 1.99) < 1e-8);
 });
+test('order ids carry the run id so two runs on one day never collide', async () => {
+  const records = [];
+  await runRoundTrip(adapter(), (r) => records.push(r), 'test-day', 'run-a');
+  await runRoundTrip(adapter(), (r) => records.push(r), 'test-day', 'run-b');
+  const ids = records.filter((r) => r.phase === 'create_pending').map((r) => r.orderId);
+  assert.deepEqual(ids, ['fe-gate-test-day-run-a-1', 'fe-gate-test-day-run-a-2', 'fe-gate-test-day-run-b-1', 'fe-gate-test-day-run-b-2']);
+  assert.equal(new Set(ids).size, ids.length);
+});
 test('unknown broadcast outcome never retries or starts return leg', async () => {
   const fake = adapter(); let sends = 0;
   fake.pay = async () => { sends++; throw new Error('timeout after broadcast'); };
