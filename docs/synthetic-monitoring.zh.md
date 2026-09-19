@@ -33,7 +33,7 @@ SQL 插入契约由 rozo-intents-api 的 pg_cron 回滚子事务测试。该任�
 
 ## 异常与回滚
 
-真钱只允许 main 上第一次 attempt，不允许直接 rerun。先写订单标识，再创建和支付；create/broadcast 没有自动重试。任一失败或取消会阻止后续运行，不能因为跨日而自行再付款。下载 `real-money-evidence` artifact，按 `fe-gate-UTC日期-腿号` 查询订单并核对链上余额和 tx。确认所有未决付款均有结论后，老板将 `FE_GATE_RECONCILED_RUN_ID` 设置为最新一次失败 run id（包括后来被守门拒绝的 run），再新建一次运行；不能只签更早的真钱 run，也不能跳过之前未核实的付款。建单前网络失败也会保守阻断，按同样流程核实没有订单再恢复。
+真钱只允许 main 上第一次 attempt，不允许直接 rerun。先写订单标识，再创建和支付；create/broadcast 没有自动重试。任一失败或取消会阻止后续运行，不能因为跨日而自行再付款。下载 `real-money-evidence` artifact，按 `fe-gate-UTC日期-GitHub run id-腿号`（如 `fe-gate-2026-09-19-35426942338-1`；同一天手动 dispatch 与定时各跑一次时订单号才不会撞 UNIQUE(app_id, order_id)）查询订单并核对链上余额和 tx。确认所有未决付款均有结论后，老板将 `FE_GATE_RECONCILED_RUN_ID` 设置为最新一次失败 run id（包括后来被守门拒绝的 run），再新建一次运行；不能只签更早的真钱 run，也不能跳过之前未核实的付款。建单前网络失败也会保守阻断，按同样流程核实没有订单再恢复。
 
 关闭三个开关即可停止新增探针或付款。正在进行的链上交易不能撤回，先保留证据并等待确认；不要取消已付款运行然后马上重启。停用数据库 cron 按 API 仓 runbook。不要删除订单、状态表或告警审计记录。
 
