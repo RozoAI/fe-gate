@@ -82,3 +82,7 @@ HTTP 200 ≠ page correct (assert after hydration); prod builds hide hydration e
 dev server); "User rejected" can be a blocked popup (mock wallet records the request path);
 Next 16 drops the space after `</strong>`; `href=""` renders silently; a registry updated in 4 of
 5 places passes build and unit tests (`vercelRewriteCoverage`).
+
+## Secret scanning
+
+Enable the local gitleaks pre-commit hook once per clone: `brew install gitleaks pre-commit && pre-commit install` (config in `.pre-commit-config.yaml`). CI also runs a report-only scan in `.github/workflows/secret-scan.yml`.
