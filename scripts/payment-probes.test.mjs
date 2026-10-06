@@ -1,27 +1,42 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertPreview, probePayments } from './payment-probes.mjs';
+import { RAILS, assertPreview, probePayments } from './payment-probes.mjs';
 import { notify } from './notify-feishu.mjs';
 const lightning = { dryrun: true, provider: 'phoenixd', source: { quotedSats: 1000, refSats: 990 }, destination: { chainId: '8453', tokenSymbol: 'USDC', amount: '1' }, expiresAt: null };
-const base = { id: null, status: 'dryrun', source: { amount: '1.01', fee: '0.01', receiverAddress: null }, destination: { chainId: '8453', tokenSymbol: 'USDC', amount: '1' }, feeInfo: { provider: 'rozo' } };
+const base = { id: null, status: 'dryrun', source: { chainId: '8453', tokenSymbol: 'USDC', amount: '1.01', fee: '0.01', receiverAddress: null }, destination: { chainId: '8453', tokenSymbol: 'USDC', amount: '1' }, feeInfo: { provider: 'rozo' } };
 test('real preview contracts require no payable invoice or deposit', () => {
   assertPreview('lightning', lightning); assertPreview('base', base);
   for (const payload of [{ ...base, id: 'real-order' }, { ...lightning, lnInvoice: 'payable' }, { ...base, databaseError: 'schema' }, { ...base, source: { amount: 'NaN', fee: 0 } }]) assert.throws(() => assertPreview('base', payload));
 });
-test('both rails use URL dryrun and never send a real create', async () => {
+test('every rail uses URL dryrun and never sends a real create', async () => {
   const calls = [];
   const results = await probePayments(async (url, options) => {
     assert.equal(options.headers.Origin, 'https://checkout.rozo.ai');
-    calls.push([url, JSON.parse(options.body)]);
-    return { status: 200, json: async () => calls.length === 1 ? lightning : base };
+    const body = JSON.parse(options.body);
+    calls.push([url, body]);
+    return { status: 200, json: async () => body.source.chainId === 'lightning' ? lightning : { ...base, source: { ...base.source, ...body.source } } };
   });
-  assert.equal(results.filter((r) => r.ok).length, 2);
+  assert.equal(results.length, RAILS.length);
+  assert.equal(results.filter((r) => r.ok).length, RAILS.length);
+  assert.deepEqual(calls.map(([, body]) => `${body.source.chainId}:${body.source.tokenSymbol}`), RAILS.map((r) => `${r.chainId}:${r.tokenSymbol}`));
   assert(calls.every(([url, body]) => url.endsWith('?dryrun=true') && body.appId === 'merchant_openrouter'));
+});
+test('covers native coins and USDT rails, with unique labels', () => {
+  const pairs = RAILS.map((r) => `${r.chainId}:${r.tokenSymbol}`);
+  for (const p of ['8453:ETH', '1:ETH', '42161:ETH', '56:BNB', '900:SOL', '900:USDT', '56:USDT']) assert(pairs.includes(p), p);
+  assert.equal(new Set(RAILS.map((r) => r.rail)).size, RAILS.length);
+});
+test('a preview for a different source than requested fails', async () => {
+  const results = await probePayments(async (url, options) => {
+    const body = JSON.parse(options.body);
+    return { status: 200, json: async () => body.source.chainId === 'lightning' ? lightning : base };
+  });
+  assert.deepEqual(results.filter((r) => !r.ok).map((r) => r.rail), RAILS.filter((r) => r.rail !== 'lightning' && r.rail !== 'base').map((r) => r.rail));
 });
 test('HTTP errors and network uncertainty fail without retry', async () => {
   let calls = 0;
   const results = await probePayments(async () => { calls++; throw new Error('network'); });
-  assert.equal(calls, 2); assert(results.every((r) => !r.ok));
+  assert.equal(calls, RAILS.length); assert(results.every((r) => !r.ok));
 });
 test('notification cannot silently succeed without secret or Feishu acceptance', async () => {
   await assert.rejects(notify(async () => {}, {}));
