@@ -28,7 +28,11 @@ jobs:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_ALERT_CHAT_ID: ${{ secrets.FEISHU_ALERT_CHAT_ID }}
-        run: node -e 'if (!(process.env.FEISHU_WEBHOOK || (process.env.FEISHU_APP_ID && process.env.FEISHU_APP_SECRET && process.env.FEISHU_ALERT_CHAT_ID))) { console.error("Feishu notification configuration missing; refusing payment"); process.exit(1); }'
+          LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          LARK_OPS_CHAT_ID: ${{ secrets.LARK_OPS_CHAT_ID }}
+          LARK_FOUNDER_CHAT_ID: ${{ secrets.LARK_FOUNDER_CHAT_ID }}
+        run: node -e 'import("./scripts/notify-feishu.mjs").then((m) => { if (!m.configured(process.env)) { console.error("notification configuration missing or incomplete; refusing payment"); process.exit(1); } })'
       - name: Base and Stellar round trip
         id: payment
         env:
@@ -45,8 +49,13 @@ jobs:
           path: real-money-evidence.json
           if-no-files-found: warn
           retention-days: 90
-      - name: Alert Feishu
+      - name: Alert Lark
+        id: alert
         if: ${{ failure() || steps.payment.outputs.low_balance == 'true' }}
+        # Delivery failure must not fail the job: the run conclusion feeds the
+        # previous-run money guard, which must only block on unreconciled
+        # payment legs. A failed payment step still fails the job by itself.
+        continue-on-error: true
         env:
           FE_GATE_FUNDING_REQUIRED: ${{ steps.payment.outputs.funding_required }}
           FE_GATE_LOW_BALANCE: ${{ steps.payment.outputs.low_balance }}
@@ -54,5 +63,12 @@ jobs:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_ALERT_CHAT_ID: ${{ secrets.FEISHU_ALERT_CHAT_ID }}
+          LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          LARK_OPS_CHAT_ID: ${{ secrets.LARK_OPS_CHAT_ID }}
+          LARK_FOUNDER_CHAT_ID: ${{ secrets.LARK_FOUNDER_CHAT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/notify-feishu.mjs
+      - name: Warn on notification failure
+        if: ${{ always() && steps.alert.outcome == 'failure' }}
+        run: echo "::warning title=notification failed::fe-gate alert was not delivered; payment legs are judged by the round-trip step only. See the open 'fe-gate monitor' issue and fix LARK_* secrets."

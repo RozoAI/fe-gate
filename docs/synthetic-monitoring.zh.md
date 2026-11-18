@@ -29,7 +29,9 @@ SQL 插入契约由 rozo-intents-api 的 pg_cron 回滚子事务测试。该任�
 
 必须记录三个 schedule run URL，SQL `cron.job_run_details` 和状态表，真实两段 payment id、源/目的 tx hash、前后余额，以及一次故意错误 app 的红灯与 Feishu 手机收件。离线单测通过不能替代这些生产证据。`FEISHU_WEBHOOK` 缺失或接口拒收会报错，不再静默假成功。
 
-通知按 workflow 稳定 key 留 GitHub issue，每 24 小时最多一次，23:00 至 06:00 Asia/Singapore 静默。投递前先保存 reservation，结果未知时保留证据并由人核实，不盲重发。成功运行不推送；余额低于 1 USDC 或 Base 0.0002 ETH 的预警也走去重。
+通知渠道（2026-11-18 起）：飞书国内版应用已于 2026-10-24 退役，告警改走 Lark 国际版应用（`open.larksuite.com`）。GitHub secrets 为 `LARK_APP_ID`、`LARK_APP_SECRET`、`LARK_OPS_CHAT_ID`（Rozo Ops，监控失败）和可选的 `LARK_FOUNDER_CHAT_ID`（Rozo Founder，补钱与低余额）。只要设置了任一 `LARK_*`，就只走 Lark，配置不全即拒绝真钱运行，不回退旧飞书。real-money 的通知步骤失败只记 warning，不让整轮变红：上一轮守卫只应因付款腿未对账而拦截，付款步骤失败仍让整轮失败。
+
+通知按 workflow 稳定 key 留 GitHub issue，每 24 小时最多一次，23:00 至 06:00 Asia/Bangkok 静默。投递前先保存 reservation，结果未知时保留证据并由人核实，不盲重发。成功运行不推送；余额低于 1 USDC 或 Base 0.0002 ETH 的预警也走去重。
 
 ## 异常与回滚
 
