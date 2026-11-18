@@ -38,7 +38,7 @@ jobs:
         env:
           FE_GATE_PROBE_APP_ID: ${{ inputs.probe_app_id || 'merchant_openrouter' }}
         run: node scripts/payment-probes.mjs
-      - name: Alert Feishu
+      - name: Alert Lark
         # Fault drills (probe_app_id=fe_gate_fault_drill) are expected to fail; do not page.
         if: failure() && inputs.probe_app_id != 'fe_gate_fault_drill'
         env:
@@ -46,5 +46,9 @@ jobs:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_ALERT_CHAT_ID: ${{ secrets.FEISHU_ALERT_CHAT_ID }}
+          LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          LARK_OPS_CHAT_ID: ${{ secrets.LARK_OPS_CHAT_ID }}
+          LARK_FOUNDER_CHAT_ID: ${{ secrets.LARK_FOUNDER_CHAT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/notify-feishu.mjs

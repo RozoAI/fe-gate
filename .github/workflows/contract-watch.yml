@@ -23,12 +23,16 @@ jobs:
         env:
           FE_GATE_SUPABASE_ANON_KEY: ${{ secrets.FE_GATE_SUPABASE_ANON_KEY }}
         run: node scripts/contract-watch.mjs
-      - name: Alert Feishu
+      - name: Alert Lark
         if: failure()
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_ALERT_CHAT_ID: ${{ secrets.FEISHU_ALERT_CHAT_ID }}
+          LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          LARK_OPS_CHAT_ID: ${{ secrets.LARK_OPS_CHAT_ID }}
+          LARK_FOUNDER_CHAT_ID: ${{ secrets.LARK_FOUNDER_CHAT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/notify-feishu.mjs
