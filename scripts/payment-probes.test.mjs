@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RAILS, assertPreview, probePayments } from './payment-probes.mjs';
+import { DEFAULT_RECEIVER, RAILS, assertPreview, errorCode, probePayments } from './payment-probes.mjs';
 import { notify } from './notify-feishu.mjs';
 const lightning = { dryrun: true, provider: 'phoenixd', source: { quotedSats: 1000, refSats: 990 }, destination: { chainId: '8453', tokenSymbol: 'USDC', amount: '1' }, expiresAt: null };
 const base = { id: null, status: 'dryrun', source: { chainId: '8453', tokenSymbol: 'USDC', amount: '1.01', fee: '0.01', receiverAddress: null }, destination: { chainId: '8453', tokenSymbol: 'USDC', amount: '1' }, feeInfo: { provider: 'rozo' } };
@@ -20,6 +20,21 @@ test('every rail uses URL dryrun and never sends a real create', async () => {
   assert.equal(results.filter((r) => r.ok).length, RAILS.length);
   assert.deepEqual(calls.map(([, body]) => `${body.source.chainId}:${body.source.tokenSymbol}`), RAILS.map((r) => `${r.chainId}:${r.tokenSymbol}`));
   assert(calls.every(([url, body]) => url.endsWith('?dryrun=true') && body.appId === 'merchant_openrouter'));
+  assert(calls.every(([, body]) => body.destination.receiverAddress === DEFAULT_RECEIVER));
+});
+test('a tier refusal is reported with only its sanitized error code', async () => {
+  const results = await probePayments(async () => ({ status: 400, json: async () => ({ error: { code: 'destinationTierReceiverRequired', message: 'secret-ish detail 0xabc' } }) }));
+  assert(results.every((r) => !r.ok && r.reason === 'HTTP 400 destinationTierReceiverRequired'));
+  assert.equal(errorCode({ error: { code: '<b>x</b>' } }), null);
+  assert.equal(errorCode({ errorCode: 'quoteUnavailable' }), 'quoteUnavailable');
+  const nonJson = await probePayments(async () => ({ status: 502, json: async () => { throw new Error('html'); } }));
+  assert(nonJson.every((r) => r.reason === 'HTTP 502'));
+});
+test('the receiver override must be an EVM address', async () => {
+  await assert.rejects(probePayments(async () => { throw new Error('unreachable'); }, 'merchant_openrouter', 'not-an-address'));
+  const calls = [];
+  await probePayments(async (url, options) => { calls.push(JSON.parse(options.body)); throw new Error('network'); }, 'merchant_openrouter', '0x0000000000000000000000000000000000000001');
+  assert(calls.every((b) => b.destination.receiverAddress === '0x0000000000000000000000000000000000000001'));
 });
 test('covers native coins and USDT rails, with unique labels', () => {
   const pairs = RAILS.map((r) => `${r.chainId}:${r.tokenSymbol}`);

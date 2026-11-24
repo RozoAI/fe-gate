@@ -1,6 +1,12 @@
 import { pathToFileURL } from 'node:url';
 
 export const API = 'https://aozudqtlykbhzbuzalzz.supabase.co/functions/v1/payment-api';
+// Since 2026-11-24 merchant_openrouter uses amount-banded destination tiers
+// (intents merchant_destination_tiers): a preview without an approved Base USDC
+// receiver is refused with destinationTierReceiverRequired. This is the public
+// T2 funder wallet (band starts at $0, so a $1 preview always fits). Override
+// with FE_GATE_PROBE_RECEIVER when the tier wallets rotate.
+export const DEFAULT_RECEIVER = '0x963bd9c6F6d18c816f6DDBB75456E499c0CF7Fc3';
 // Every source rail OpenRouter checkout accepts in production. Rail names are
 // the log/alert labels; keep 'lightning' and 'base' stable for alert history.
 export const RAILS = [
@@ -28,27 +34,40 @@ export function assertPreview(rail, body, expected) {
   if (body.destination?.chainId !== '8453' || body.destination?.tokenSymbol !== 'USDC' || Number(body.destination?.amount) !== 1) throw new Error('wrong preview destination/amount');
 }
 
-export async function probePayments(fetcher = fetch, appId = 'merchant_openrouter') {
+// Only a short identifier-like API error code is ever logged, never the body.
+export function errorCode(body) {
+  const code = body?.error?.code ?? body?.errorCode;
+  return typeof code === 'string' && /^[A-Za-z0-9_]{1,64}$/.test(code) ? code : null;
+}
+
+export async function probePayments(fetcher = fetch, appId = 'merchant_openrouter', receiverAddress = DEFAULT_RECEIVER) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(receiverAddress)) throw new Error('FE_GATE_PROBE_RECEIVER is not an EVM address');
   const results = [];
   for (const { rail, chainId, tokenSymbol } of RAILS) {
+    let reason = null;
     try {
       const response = await fetcher(`${API}/payments?dryrun=true`, {
         method: 'POST', redirect: 'error', signal: AbortSignal.timeout(30_000),
         headers: { 'Content-Type': 'application/json', Origin: 'https://checkout.rozo.ai' },
-        body: JSON.stringify({ appId, type: 'exactOut', source: { chainId, tokenSymbol }, destination: { chainId: '8453', tokenSymbol: 'USDC', amount: '1' } }),
+        body: JSON.stringify({ appId, type: 'exactOut', source: { chainId, tokenSymbol }, destination: { chainId: '8453', tokenSymbol: 'USDC', amount: '1', receiverAddress } }),
       });
-      if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
+      if (response.status !== 200) {
+        let code = null;
+        try { code = errorCode(await response.json()); } catch { /* non-JSON error body */ }
+        reason = `HTTP ${response.status}${code ? ` ${code}` : ''}`;
+        throw new Error(reason);
+      }
       assertPreview(rail, await response.json(), { chainId, tokenSymbol });
       results.push({ rail, ok: true });
     } catch {
       // Never serialize responses, wallet data, URLs or SDK error objects.
-      results.push({ rail, ok: false });
+      results.push({ rail, ok: false, reason });
     }
   }
   return results;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const results = await probePayments(fetch, process.env.FE_GATE_PROBE_APP_ID || 'merchant_openrouter');
-  for (const result of results) console.log(`${result.ok ? 'ok' : 'FAIL'} checkout-${result.rail} quote-preview`);
+  const results = await probePayments(fetch, process.env.FE_GATE_PROBE_APP_ID || 'merchant_openrouter', process.env.FE_GATE_PROBE_RECEIVER || DEFAULT_RECEIVER);
+  for (const result of results) console.log(`${result.ok ? 'ok' : 'FAIL'} checkout-${result.rail} quote-preview${result.reason ? ` (${result.reason})` : ''}`);
   if (results.some((r) => !r.ok)) process.exitCode = 1;
 }
